@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Duck Return Reminders</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f5;
+            color: #252525;
+        }
+
+        .container {
+            width: min(900px, 92%);
+            margin: 48px auto;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-top: 0;
+        }
+
+        .summary {
+            background: #fff4b8;
+            border: 1px solid #eadb7d;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 24px 0;
+        }
+
+        .member {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            margin-bottom: 18px;
+            overflow: hidden;
+        }
+
+        .member-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .member-name {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .duck-count {
+            background: #eee;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .ducks {
+            padding: 8px 20px 18px;
+        }
+
+        .duck-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .duck-row:last-child {
+            border-bottom: 0;
+        }
+
+        .quantity {
+            font-weight: bold;
+        }
+
+        .empty {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>Duck Return Reminders</h1>
+        <p class="subtitle">
+            Members currently holding ducks that are due back in 3 days.
+        </p>
+
+        <div class="summary">
+            <strong>{{ total_ducks }} duck{{ "" if total_ducks == 1 else "s" }}</strong>
+            due on {{ target_date.strftime("%d %b %Y") }}
+        </div>
+
+        {% if grouped %}
+            {% for group in grouped %}
+                <section class="member">
+                    <div class="member-header">
+                        <span class="member-name">{{ group.member.name }}</span>
+                        <span class="duck-count">
+                            {{ group.total_ducks }} duck{{ "" if group.total_ducks == 1 else "s" }}
+                        </span>
+                    </div>
+
+                    <div class="ducks">
+                        {% for duck_name, quantity in group.duck_groups %}
+                            <div class="duck-row">
+                                <span>{{ duck_name }}</span>
+                                <span class="quantity">× {{ quantity }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
+        {% else %}
+            <div class="empty">
+                No ducks are due back in 3 days.
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>
