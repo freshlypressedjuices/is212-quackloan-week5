@@ -18,17 +18,73 @@ class Duck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
 
+    # Used by SQLAlchemy to map rows to the correct subclass.
+    duck_type = db.Column(db.String(20), nullable=False)
+
+    __mapper_args__ = {
+        "polymorphic_on": duck_type,
+        "polymorphic_identity": "duck"
+    }
+
+    def get_loan_period(self):
+        raise NotImplementedError
+
+
+class StandardDuck(Duck):
+    __mapper_args__ = {
+        "polymorphic_identity": "standard"
+    }
+
+    loan_period = 7
+    deposit = 0.0
+
+    def get_loan_period(self):
+        return self.loan_period
+
+
+class DeluxeDuck(Duck):
+    __mapper_args__ = {
+        "polymorphic_identity": "deluxe"
+    }
+
+    loan_period = 14
+    deposit = 10.0
+
+    def get_loan_period(self):
+        return self.loan_period
+
 
 class Loan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     borrowed_on = db.Column(db.Date, nullable=False)
     due_on = db.Column(db.Date, nullable=False)
 
-    member_id = db.Column(db.Integer, db.ForeignKey("member.id"), nullable=False)
-    duck_id = db.Column(db.Integer, db.ForeignKey("duck.id"), nullable=False)
+    member_id = db.Column(
+        db.Integer,
+        db.ForeignKey("member.id"),
+        nullable=False
+    )
 
-    member = db.relationship("Member", backref=db.backref("loans", lazy=True))
-    duck = db.relationship("Duck", backref=db.backref("loans", lazy=True))
+    duck_id = db.Column(
+        db.Integer,
+        db.ForeignKey("duck.id"),
+        nullable=False
+    )
+
+    member = db.relationship(
+        "Member",
+        backref=db.backref("loans", lazy=True)
+    )
+
+    duck = db.relationship(
+        "Duck",
+        backref=db.backref("loans", lazy=True)
+    )
+
+    def calculate_due_date(self):
+        return self.borrowed_on + timedelta(
+            days=self.duck.get_loan_period()
+        )
 
 
 def seed_database():
@@ -43,35 +99,54 @@ def seed_database():
     db.session.add_all(members)
 
     ducks = [
-        Duck(name="Debuggy"),
-        Duck(name="Quacky"),
-        Duck(name="Rubber"),
-        Duck(name="Sir Ducksworth"),
-        Duck(name="Yellow"),
+        StandardDuck(name="Debuggy"),
+        StandardDuck(name="Quacky"),
+        StandardDuck(name="Rubber"),
+        StandardDuck(name="Sir Ducksworth"),
+        DeluxeDuck(name="Deluxe Duck"),
     ]
     db.session.add_all(ducks)
     db.session.commit()
 
     today = date.today()
 
-    # These loans are due exactly 3 days from today and should appear.
     loans = [
-        Loan(member_id=members[0].id, duck_id=ducks[0].id,
-             borrowed_on=today - timedelta(days=4), due_on=today + timedelta(days=3)),
-        Loan(member_id=members[0].id, duck_id=ducks[0].id,
-             borrowed_on=today - timedelta(days=2), due_on=today + timedelta(days=3)),
-        Loan(member_id=members[0].id, duck_id=ducks[1].id,
-             borrowed_on=today - timedelta(days=3), due_on=today + timedelta(days=3)),
-        Loan(member_id=members[1].id, duck_id=ducks[2].id,
-             borrowed_on=today - timedelta(days=1), due_on=today + timedelta(days=3)),
-        Loan(member_id=members[1].id, duck_id=ducks[3].id,
-             borrowed_on=today - timedelta(days=5), due_on=today + timedelta(days=3)),
-        Loan(member_id=members[2].id, duck_id=ducks[4].id,
-             borrowed_on=today - timedelta(days=2), due_on=today + timedelta(days=3)),
-
-        # Not due in 3 days, demonstrating that it is filtered out.
-        Loan(member_id=members[3].id, duck_id=ducks[0].id,
-             borrowed_on=today, due_on=today + timedelta(days=7)),
+        Loan(
+            member_id=members[0].id,
+            duck_id=ducks[0].id,
+            borrowed_on=today - timedelta(days=4),
+            due_on=today + timedelta(days=3)
+        ),
+        Loan(
+            member_id=members[0].id,
+            duck_id=ducks[0].id,
+            borrowed_on=today - timedelta(days=2),
+            due_on=today + timedelta(days=3)
+        ),
+        Loan(
+            member_id=members[0].id,
+            duck_id=ducks[1].id,
+            borrowed_on=today - timedelta(days=3),
+            due_on=today + timedelta(days=3)
+        ),
+        Loan(
+            member_id=members[1].id,
+            duck_id=ducks[2].id,
+            borrowed_on=today - timedelta(days=1),
+            due_on=today + timedelta(days=3)
+        ),
+        Loan(
+            member_id=members[1].id,
+            duck_id=ducks[3].id,
+            borrowed_on=today - timedelta(days=5),
+            due_on=today + timedelta(days=3)
+        ),
+        Loan(
+            member_id=members[2].id,
+            duck_id=ducks[4].id,
+            borrowed_on=today - timedelta(days=2),
+            due_on=today + timedelta(days=3)
+        ),
     ]
 
     db.session.add_all(loans)
@@ -89,12 +164,19 @@ def reminders():
         .all()
     )
 
-    # Group loans by member, then group the same duck together.
     grouped = []
-    for member in sorted({loan.member for loan in loans}, key=lambda m: m.name):
-        member_loans = [loan for loan in loans if loan.member_id == member.id]
+
+    for member in sorted(
+        {loan.member for loan in loans},
+        key=lambda member: member.name
+    ):
+        member_loans = [
+            loan for loan in loans
+            if loan.member_id == member.id
+        ]
 
         duck_groups = {}
+
         for loan in member_loans:
             duck_groups.setdefault(loan.duck.name, 0)
             duck_groups[loan.duck.name] += 1
