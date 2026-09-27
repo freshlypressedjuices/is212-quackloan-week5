@@ -26,3 +26,4 @@ Then open:
 http://127.0.0.1:5000
 
 Because the database is in memory, the demo data is recreated each time the application starts.
+test
